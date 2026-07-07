@@ -1,0 +1,53 @@
+name: Build macOS App
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.10'
+    
+    - name: Install dependencies and build
+      run: |
+        python -m venv venv
+        source venv/bin/activate
+        python -m pip install --upgrade pip
+        pip install --no-cache-dir -r requirements.txt
+        pip install --no-cache-dir pyinstaller
+        
+        # Определяем, где лежат плагины PyQt6 для macOS (платформа Cocoa)
+        QT_PATH=$(python -c "import PyQt6; import os; print(os.path.dirname(PyQt6.__file__))")
+        
+        # Собираем приложение с правильными скрытыми импортами и плагинами под Mac
+        pyinstaller --noconfirm --windowed \
+          --name="TelegramAutoBot" \
+          --add-binary="$QT_PATH/Qt6/plugins/platforms/libqcocoa.dylib:PyQt6/Qt6/plugins/platforms" \
+          --hidden-import="PyQt6.sip" \
+          --hidden-import="telethon" \
+          --hidden-import="python_socks" \
+          --hidden-import="socks" \
+          --hidden-import="asyncio" \
+          gui.py
+    
+    - name: Create DMG
+      run: |
+        mkdir -p dist/dmg
+        cp -r dist/TelegramAutoBot.app dist/dmg/
+        cd dist/dmg
+        hdiutil create -volname "TelegramAutoBot" -srcfolder . -ov -format UDZO ../TelegramAutoBot.dmg
+    
+    - name: Upload DMG artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: TelegramAutoBot-macOS
+        path: dist/TelegramAutoBot.dmg
