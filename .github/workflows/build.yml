@@ -1,91 +1,50 @@
 name: Build macOS App
 
 on:
-  push:
-    branches: [ main, master ]
-  pull_request:
-    branches: [ main, master ]
-  workflow_dispatch:
+  workflow_dispatch:  # Только ручной запуск (быстрее)
 
 jobs:
   build:
-    runs-on: macos-13  # Используем Intel раннер (более стабильный)
+    runs-on: macos-latest  # Самый быстрый раннер
+    timeout-minutes: 20    # Таймаут на всякий случай
     
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+    - uses: actions/checkout@v4
     
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
-        python-version: '3.11'  # Меняем с 3.10 на 3.11
-        architecture: 'x64'
+        python-version: '3.11'
     
-    - name: Install system dependencies (macOS)
+    - name: Install dependencies
       run: |
-        brew update
-        brew install qt6
-        brew install libomp
-        brew install gettext  # Добавляем gettext для libintl
+        brew install qt6 gettext
         brew link --force gettext
-    
-    - name: Create virtual environment
-      run: |
-        python -m venv venv
-        source venv/bin/activate
         python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pyinstaller
     
-    - name: Install Python dependencies
+    - name: Build
       run: |
-        source venv/bin/activate
-        pip install --no-cache-dir -r requirements.txt
-        pip install --no-cache-dir pyinstaller
-        pip install --no-cache-dir Pillow
-    
-    - name: Build with PyInstaller
-      run: |
-        source venv/bin/activate
-        
         QT_PATH=$(python -c "import PyQt6; import os; print(os.path.dirname(PyQt6.__file__))")
-        
         pyinstaller --noconfirm --windowed \
           --name="TelegramAutoBot" \
           --add-binary="$QT_PATH/Qt6/plugins/platforms/libqcocoa.dylib:PyQt6/Qt6/plugins/platforms" \
-          --add-binary="$QT_PATH/Qt6/plugins/styles/libqmacstyle.dylib:PyQt6/Qt6/plugins/styles" \
           --hidden-import="qasync" \
           --hidden-import="telethon" \
           --hidden-import="cryptg" \
           --hidden-import="PyQt6.sip" \
           --hidden-import="socks" \
-          --hidden-import="asyncio" \
-          --hidden-import="datetime" \
-          --hidden-import="json" \
-          --hidden-import="csv" \
-          --hidden-import="random" \
-          --hidden-import="traceback" \
-          --osx-bundle-identifier="com.telegramautobot.app" \
-          --collect-data="telethon" \
-          --collect-data="qasync" \
           main.py
-    
-    - name: Verify build
-      run: |
-        ls -la dist/
-        file dist/TelegramAutoBot.app/Contents/MacOS/TelegramAutoBot || true
     
     - name: Create DMG
       run: |
         mkdir -p dist/dmg
         cp -r dist/TelegramAutoBot.app dist/dmg/
-        ln -s /Applications dist/dmg/Applications
-        hdiutil create -volname "TelegramAutoBot" \
-          -srcfolder dist/dmg \
-          -ov -format UDZO \
-          dist/TelegramAutoBot.dmg
+        hdiutil create -volname "TelegramAutoBot" -srcfolder dist/dmg -ov -format UDZO dist/TelegramAutoBot.dmg
     
-    - name: Upload DMG artifact
+    - name: Upload
       uses: actions/upload-artifact@v4
       with:
         name: TelegramAutoBot.dmg
         path: dist/TelegramAutoBot.dmg
-        retention-days: 30
