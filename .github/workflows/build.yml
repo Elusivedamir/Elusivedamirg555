@@ -15,7 +15,7 @@ jobs:
       uses: actions/setup-python@v5
       with:
         python-version: '3.11'
-        architecture: 'arm64'  # Явно указываем архитектуру
+        architecture: 'arm64'
     
     - name: Install dependencies
       run: |
@@ -25,7 +25,16 @@ jobs:
         pip install -r requirements.txt
         pip install pyinstaller
     
-    - name: Build with PyInstaller (ONLY ARM64)
+    - name: List files (debug)
+      run: |
+        echo "Current directory:"
+        pwd
+        echo "Files:"
+        ls -la
+        echo "Python files:"
+        ls -la *.py || echo "No .py files found!"
+    
+    - name: Build with PyInstaller
       run: |
         QT_PATH=$(python -c "import PyQt6; import os; print(os.path.dirname(PyQt6.__file__))")
         
@@ -38,10 +47,10 @@ jobs:
           --hidden-import="cryptg" \
           --hidden-import="PyQt6.sip" \
           --hidden-import="socks" \
-          --target-architecture="arm64" \  # ← ИЗМЕНЕНО!
+          --target-architecture="arm64" \
           --collect-data="telethon" \
           --collect-data="qasync" \
-          main.py
+          main.py  # ← Убедитесь, что файл существует
     
     - name: Create DMG
       run: |
