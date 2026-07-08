@@ -58,6 +58,9 @@ def main():
         font = QFont("SF Pro Display", 11)
         app.setFont(font)
         
+        # ===== ИСПРАВЛЕНИЕ ДЛЯ ASYNCIO =====
+        asyncio.set_event_loop_policy(asyncio.DefaultEventLoopPolicy())
+        
         loop = qasync.QEventLoop(app)
         asyncio.set_event_loop(loop)
         
