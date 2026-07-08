@@ -1,0 +1,68 @@
+name: Build macOS App
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+        architecture: 'arm64'
+
+    - name: Install dependencies
+      run: |
+        brew install qt6
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pyinstaller
+
+    - name: Build with PyInstaller (FIXED)
+      run: |
+        QT_PATH=$(python -c "import PyQt6; import os; print(os.path.dirname(PyQt6.__file__))")
+        echo "✅ QT_PATH: $QT_PATH"
+
+        pyinstaller --noconfirm --windowed \
+          --name="TelegramAutoBot" \
+          --add-binary="$QT_PATH/Qt6/plugins/platforms/libqcocoa.dylib:PyQt6/Qt6/plugins/platforms" \
+          --add-binary="$QT_PATH/Qt6/plugins/styles/libqmacstyle.dylib:PyQt6/Qt6/plugins/styles" \
+          --add-binary="$QT_PATH/Qt6/plugins/iconengines/libqsvgicon.dylib:PyQt6/Qt6/plugins/iconengines" \
+          --add-binary="$QT_PATH/Qt6/plugins/imageformats/libqsvg.dylib:PyQt6/Qt6/plugins/imageformats" \
+          --hidden-import="qasync" \
+          --hidden-import="telethon" \
+          --hidden-import="cryptg" \
+          --hidden-import="PyQt6.sip" \
+          --hidden-import="socks" \
+          --target-architecture="arm64" \
+          --collect-all="PyQt6" \
+          main.py
+
+    - name: Verify build
+      run: |
+        echo "📁 Проверка .app:"
+        ls -la dist/TelegramAutoBot.app/Contents/
+        echo ""
+        echo "📁 Проверка MacOS:"
+        ls -la dist/TelegramAutoBot.app/Contents/MacOS/ || true
+        echo ""
+        echo "📁 Проверка наличия .dylib:"
+        find dist/TelegramAutoBot.app -name "*.dylib" | head -20 || true
+
+    - name: Create DMG
+      run: |
+        mkdir -p dist/dmg
+        cp -r dist/TelegramAutoBot.app dist/dmg/
+        hdiutil create -volname "TelegramAutoBot" -srcfolder dist/dmg -ov -format UDZO dist/TelegramAutoBot.dmg
+
+    - name: Upload DMG
+      uses: actions/upload-artifact@v4
+      with:
+        name: TelegramAutoBot-M1.dmg
+        path: dist/TelegramAutoBot.dmg
