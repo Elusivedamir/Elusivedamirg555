@@ -653,10 +653,16 @@ class MainWindow(QMainWindow):
 
                 await asyncio.sleep(1)
 
-            # Сохраняем на рабочий стол
+            # Сохраняем на рабочий стол через диалог (обход песочницы macOS)
             desktop = Path.home() / "Desktop"
             filename = f"channels_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
-            filepath = desktop / filename
+            filepath, _ = QFileDialog.getSaveFileName(
+                self, "Сохранить список каналов", str(desktop / filename), "CSV files (*.csv)"
+            )
+            
+            if not filepath:
+                self.log("⚠️ Сохранение отменено")
+                return
 
             with open(filepath, 'w', encoding='utf-8-sig', newline='') as f:
                 writer = csv.writer(f, delimiter=';')
@@ -837,10 +843,10 @@ class MainWindow(QMainWindow):
         self.auth_btn.setEnabled(True)
         self.update_status_labels()
 
-    def ask_code_async(self, message):
+    async def ask_code_async(self, message):
         self._code_future = self._loop.create_future()
         self.code_requested.emit(message)
-        return self._code_future
+        return await self._code_future
 
     @pyqtSlot(str)
     def _on_code_requested(self, message):

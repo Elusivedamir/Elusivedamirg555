@@ -250,15 +250,14 @@ class TelegramBot:
                     continue
                 
                 if destination and destination.strip():
-                    # Режим 1: комментарий к посту в чате обсуждения
-                    chat = await self.get_entity(destination)
+                    # Режим 1: комментарий к посту (Telethon сам найдет чат обсуждения)
                     await self.client.send_message(
-                        chat,
+                        channel,
                         text,
-                        reply_to=post.id
+                        comment_to=post.id
                     )
                     if status_cb:
-                        status_cb(f"💬 [{config.SENT_TODAY+1}/{config.DAILY_LIMIT}] Ответ на пост в {destination}")
+                        status_cb(f"💬 [{config.SENT_TODAY+1}/{config.DAILY_LIMIT}] Ответ на пост в {source}")
                 else:
                     # Режим 2: обычное сообщение в канал
                     await self.client.send_message(
@@ -308,6 +307,7 @@ class TelegramBot:
                 if status_cb:
                     status_cb(f"⏳ FloodWait: ожидание {e.seconds} сек.")
                 await asyncio.sleep(e.seconds)
+                current += 1
                 continue
             except Exception as e:
                 if status_cb:
