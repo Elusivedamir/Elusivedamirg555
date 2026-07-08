@@ -11,6 +11,9 @@ from PyQt6.QtWidgets import *
 from PyQt6.QtCore import *
 from PyQt6.QtGui import *
 
+# ===== ФИКС ДЛЯ ASYNCIO =====
+asyncio.set_event_loop_policy(asyncio.DefaultEventLoopPolicy())
+
 import config
 from telegram_bot import TelegramBot
 from utils import setup_logger, format_time
@@ -341,7 +344,7 @@ class MainWindow(QMainWindow):
         self.pairs_table.setHorizontalHeaderLabels(["Канал (Source)", "Чат (Destination)"])
         self.pairs_table.horizontalHeader().setStretchLastSection(True)
         self.pairs_table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
-        self.pairs_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)  # Только просмотр
+        self.pairs_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
 
         # Оптимизация таблицы
         self.pairs_table.setAttribute(Qt.WidgetAttribute.WA_OpaquePaintEvent, True)
