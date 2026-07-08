@@ -19,25 +19,20 @@ jobs:
     
     - name: Install dependencies
       run: |
-        brew install qt6 gettext
-        brew link --force gettext
+        brew install qt6
         python -m pip install --upgrade pip
         pip install -r requirements.txt
         pip install pyinstaller
     
-    - name: List files (debug)
+    - name: Find Qt6 path
+      id: qt_path
       run: |
-        echo "Current directory:"
-        pwd
-        echo "Files:"
-        ls -la
-        echo "Python files:"
-        ls -la *.py || echo "No .py files found!"
+        QT_PATH=$(python -c "import PyQt6; import os; print(os.path.dirname(PyQt6.__file__))")
+        echo "QT_PATH=$QT_PATH" >> $GITHUB_ENV
+        echo "✅ Qt6 найден: $QT_PATH"
     
     - name: Build with PyInstaller
       run: |
-        QT_PATH=$(python -c "import PyQt6; import os; print(os.path.dirname(PyQt6.__file__))")
-        
         pyinstaller --noconfirm --windowed \
           --name="TelegramAutoBot" \
           --add-binary="$QT_PATH/Qt6/plugins/platforms/libqcocoa.dylib:PyQt6/Qt6/plugins/platforms" \
@@ -48,9 +43,12 @@ jobs:
           --hidden-import="PyQt6.sip" \
           --hidden-import="socks" \
           --target-architecture="arm64" \
-          --collect-data="telethon" \
-          --collect-data="qasync" \
-          main.py  # ← Убедитесь, что файл существует
+          main.py
+    
+    - name: Verify build
+      run: |
+        ls -la dist/TelegramAutoBot.app/Contents/MacOS/
+        file dist/TelegramAutoBot.app/Contents/MacOS/TelegramAutoBot
     
     - name: Create DMG
       run: |
@@ -61,5 +59,5 @@ jobs:
     - name: Upload DMG
       uses: actions/upload-artifact@v4
       with:
-        name: TelegramAutoBot-arm64.dmg
+        name: TelegramAutoBot-M1.dmg
         path: dist/TelegramAutoBot.dmg
