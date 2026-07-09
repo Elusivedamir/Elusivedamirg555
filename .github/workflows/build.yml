@@ -2,67 +2,94 @@ name: Build macOS App
 
 on:
   workflow_dispatch:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
 
 jobs:
   build:
     runs-on: macos-latest
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.11'
-        architecture: 'arm64'
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/Library/Caches/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
 
-    - name: Install dependencies
-      run: |
-        brew install qt6
-        python -m pip install --upgrade pip
-        pip install -r requirements.txt
-        pip install pyinstaller
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+          architecture: 'x64'
 
-    - name: Build with PyInstaller (FIXED)
-      run: |
-        QT_PATH=$(python -c "import PyQt6; import os; print(os.path.dirname(PyQt6.__file__))")
-        echo "✅ QT_PATH: $QT_PATH"
+      - name: Install system dependencies
+        run: |
+          brew update
+          brew install qt@6
+          echo "/opt/homebrew/opt/qt@6/bin" >> "$GITHUB_PATH"
 
-        pyinstaller --noconfirm --windowed \
-          --name="TelegramAutoBot" \
-          --add-binary="$QT_PATH/Qt6/plugins/platforms/libqcocoa.dylib:PyQt6/Qt6/plugins/platforms" \
-          --add-binary="$QT_PATH/Qt6/plugins/styles/libqmacstyle.dylib:PyQt6/Qt6/plugins/styles" \
-          --add-binary="$QT_PATH/Qt6/plugins/iconengines/libqsvgicon.dylib:PyQt6/Qt6/plugins/iconengines" \
-          --add-binary="$QT_PATH/Qt6/plugins/imageformats/libqsvg.dylib:PyQt6/Qt6/plugins/imageformats" \
-          --hidden-import="qasync" \
-          --hidden-import="telethon" \
-          --hidden-import="cryptg" \
-          --hidden-import="PyQt6.sip" \
-          --hidden-import="socks" \
-          --target-architecture="arm64" \
-          --collect-all="PyQt6" \
-          main.py
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip setuptools wheel
+          python -m pip install --upgrade PyQt6 PyQt6-Qt6 PyQt6-sip qasync telethon keyring cryptg pysocks pyinstaller
+          python -m pip install -r requirements.txt
 
-    - name: Verify build
-      run: |
-        echo "📁 Проверка .app:"
-        ls -la dist/TelegramAutoBot.app/Contents/
-        echo ""
-        echo "📁 Проверка MacOS:"
-        ls -la dist/TelegramAutoBot.app/Contents/MacOS/ || true
-        echo ""
-        echo "📁 Проверка наличия .dylib:"
-        find dist/TelegramAutoBot.app -name "*.dylib" | head -20 || true
+      - name: Check for dependency conflicts
+        run: |
+          python -m pip check
 
-    - name: Create DMG
-      run: |
-        mkdir -p dist/dmg
-        cp -r dist/TelegramAutoBot.app dist/dmg/
-        hdiutil create -volname "TelegramAutoBot" -srcfolder dist/dmg -ov -format UDZO dist/TelegramAutoBot.dmg
+      - name: Syntax check
+        run: |
+          python -m py_compile main.py config.py utils.py telegram_bot.py gui.py gui_styles.py gui_auth.py gui_channels.py gui_pairs.py gui_commenting.py
+          echo "✅ All files compiled successfully"
 
-    - name: Upload DMG
-      uses: actions/upload-artifact@v4
-      with:
-        name: TelegramAutoBot-M1.dmg
-        path: dist/TelegramAutoBot.dmg
+      - name: Import check
+        run: |
+          python -c "import config; print('config.py: OK')"
+          python -c "import utils; print('utils.py: OK')"
+          python -c "import telegram_bot; print('telegram_bot.py: OK')"
+          python -c "import gui_styles; print('gui_styles.py: OK')"
+          python -c "import gui_auth; print('gui_auth.py: OK')"
+          python -c "import gui_channels; print('gui_channels.py: OK')"
+          python -c "import gui_pairs; print('gui_pairs.py: OK')"
+          python -c "import gui_commenting; print('gui_commenting.py: OK')"
+          python -c "import gui; print('gui.py: OK')"
+
+      - name: Run smoke tests
+        run: |
+          python test_smoke.py
+
+      - name: Build with PyInstaller
+        run: |
+          python -m PyInstaller --clean --noconfirm build.spec
+
+      - name: Verify build
+        run: |
+          echo "📁 Проверка .app:"
+          ls -la dist/TelegramAutoBot.app/Contents/ || true
+          echo ""
+          echo "📁 Проверка MacOS:"
+          ls -la dist/TelegramAutoBot.app/Contents/MacOS/ || true
+          echo ""
+          echo "📁 Проверка артефактов:"
+          find dist/TelegramAutoBot.app -maxdepth 3 -type f | head -50 || true
+
+      - name: Create DMG
+        run: |
+          mkdir -p dist/dmg
+          cp -R dist/TelegramAutoBot.app dist/dmg/
+          hdiutil create -volname "TelegramAutoBot" -srcfolder dist/dmg -ov -format UDZO dist/TelegramAutoBot.dmg
+
+      - name: Upload DMG
+        uses: actions/upload-artifact@v4
+        with:
+          name: TelegramAutoBot-macOS.dmg
+          path: dist/TelegramAutoBot.dmg
+          retention-days: 30
