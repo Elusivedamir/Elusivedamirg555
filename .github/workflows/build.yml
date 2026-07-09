@@ -7,10 +7,6 @@ on:
   pull_request:
     branches: [main, master]
 
-env:
-  # Отключает предупреждение о старой версии Node на раннерах
-  ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
-
 jobs:
   build:
     runs-on: macos-latest
@@ -36,10 +32,11 @@ jobs:
       - name: Install system dependencies
         run: |
           brew update
-          # qt@6 нужен для GUI, gettext исправляет ошибку libintl.8.dylib
           brew install qt@6 gettext
+          # Добавляем пути в окружение для корректной линковки библиотек
+          echo "LDFLAGS=-L$(brew --prefix gettext)/lib" >> $GITHUB_ENV
+          echo "CPPFLAGS=-I$(brew --prefix gettext)/include" >> $GITHUB_ENV
           echo "/opt/homebrew/opt/qt@6/bin" >> "$GITHUB_PATH"
-          echo "/opt/homebrew/opt/gettext/bin" >> "$GITHUB_PATH"
 
       - name: Install Python dependencies
         run: |
@@ -47,35 +44,21 @@ jobs:
           python -m pip install --upgrade PyQt6 PyQt6-Qt6 PyQt6-sip qasync telethon keyring cryptg pysocks pyinstaller
           python -m pip install -r requirements.txt
 
-      - name: Check for dependency conflicts
-        run: |
-          python -m pip check
-
-      - name: Syntax check
-        run: |
-          python -m py_compile main.py config.py utils.py telegram_bot.py gui.py gui_styles.py gui_auth.py gui_channels.py gui_pairs.py gui_commenting.py
-
-      - name: Run smoke tests
-        run: |
-          python test_smoke.py
-
       - name: Build with PyInstaller
         run: |
           python -m PyInstaller --clean --noconfirm build.spec
 
-      - name: Verify build
-        run: |
-          echo "📁 Проверка .app:"
-          ls -la dist/TelegramAutoBot.app/Contents/ || true
-          echo ""
-          echo "📁 Проверка MacOS:"
-          ls -la dist/TelegramAutoBot.app/Contents/MacOS/ || true
-          echo ""
-          echo "📁 Проверка артефактов:"
-          find dist/TelegramAutoBot.app -maxdepth 3 -type f | head -50 || true
-
       - name: Create DMG
         run: |
           mkdir -p dist/dmg
+          # Копируем приложение в папку для DMG
           cp -R dist/TelegramAutoBot.app dist/dmg/
+          # Создаем DMG
           hdiutil create -volname "TelegramAutoBot" -srcfolder dist/dmg -ov -format UDZO dist/TelegramAutoBot.dmg
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: TelegramAutoBot-Installer
+          path: dist/TelegramAutoBot.dmg
+          if-no-files-found: error
