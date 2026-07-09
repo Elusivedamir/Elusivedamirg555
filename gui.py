@@ -186,7 +186,8 @@ class MainWindow(QMainWindow, AuthMixin, ChannelsMixin, PairsMixin, CommentingMi
 
     def open_client_guide(self):
         try:
-            guide_path = os.path.join(os.path.dirname(__file__), "README_FOR_CLIENT.md")
+            # Ищем файл с новым названием
+            guide_path = os.path.join(os.path.dirname(__file__), "СТЯ  С.md")
             if sys.platform == "darwin":
                 subprocess.Popen(["open", guide_path])
             elif os.name == "nt":

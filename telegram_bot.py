@@ -282,7 +282,7 @@ class TelegramBot:
             if value.startswith(prefix):
                 value = value[len(prefix):]
         if value.startswith("t.me/"):
-            value = value.replace("t.me/", "")
+            value = value[len("t.me/"):]
         return await self.client.get_entity(value)
     
     @staticmethod
@@ -427,12 +427,16 @@ class TelegramBot:
                     attempt = 0
                     continue
 
+                # Выбираем случайный комментарий перед КАЖДОЙ отправкой
+                valid_texts = [c for c in config.COMMENT_VARIANTS if c.strip()]
+                current_text = random.choice(valid_texts) if valid_texts else text
+
                 if destination and destination.strip():
-                    await self.client.send_message(channel, text, comment_to=post.id)
+                    await self.client.send_message(channel, current_text, comment_to=post.id)
                     if status_cb:
                         status_cb(f"💬 [{config.SENT_TODAY+1}/{config.DAILY_LIMIT}] Ответ на пост в {source}")
                 else:
-                    await self.client.send_message(channel, text)
+                    await self.client.send_message(channel, current_text)
                     if status_cb:
                         status_cb(f"💬 [{config.SENT_TODAY+1}/{config.DAILY_LIMIT}] Обычное сообщение в {source}")
 

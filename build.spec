@@ -15,6 +15,8 @@ datas = []
 datas += collect_data_files('telethon', include_py_files=True)
 datas += collect_data_files('PyQt6')
 datas += collect_data_files('keyring')
+# Добавляем файл инструкции в сборку
+datas += [('СТЯ  С.md', '.')]
 
 a = Analysis(
     ['main.py'],
