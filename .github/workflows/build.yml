@@ -7,6 +7,10 @@ on:
   pull_request:
     branches: [main, master]
 
+env:
+  # Отключает предупреждение о старой версии Node на раннерах
+  ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
+
 jobs:
   build:
     runs-on: macos-latest
@@ -14,12 +18,6 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
-      # ВАЖНО: Исправление окончаний строк для всех .command файлов
-      - name: Fix line endings (CRLF to LF)
-        run: |
-          brew install dos2unix
-          find . -name "*.command" -exec dos2unix {} \;
 
       - name: Cache pip
         uses: actions/cache@v4
@@ -38,8 +36,10 @@ jobs:
       - name: Install system dependencies
         run: |
           brew update
-          brew install qt@6
+          # qt@6 нужен для GUI, gettext исправляет ошибку libintl.8.dylib
+          brew install qt@6 gettext
           echo "/opt/homebrew/opt/qt@6/bin" >> "$GITHUB_PATH"
+          echo "/opt/homebrew/opt/gettext/bin" >> "$GITHUB_PATH"
 
       - name: Install Python dependencies
         run: |
@@ -70,16 +70,12 @@ jobs:
           echo ""
           echo "📁 Проверка MacOS:"
           ls -la dist/TelegramAutoBot.app/Contents/MacOS/ || true
+          echo ""
+          echo "📁 Проверка артефактов:"
+          find dist/TelegramAutoBot.app -maxdepth 3 -type f | head -50 || true
 
       - name: Create DMG
         run: |
           mkdir -p dist/dmg
           cp -R dist/TelegramAutoBot.app dist/dmg/
-          # Использование hdiutil для создания образа
           hdiutil create -volname "TelegramAutoBot" -srcfolder dist/dmg -ov -format UDZO dist/TelegramAutoBot.dmg
-
-      - name: Upload Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: TelegramAutoBot-Build
-          path: dist/TelegramAutoBot.dmg
