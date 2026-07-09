@@ -22,10 +22,10 @@ jobs:
         run: |
           brew update
           brew install qt@6 gettext
+          # Добавляем пути к qt@6 в PATH для сборки
           echo "/opt/homebrew/opt/qt@6/bin" >> "$GITHUB_PATH"
           echo "/opt/homebrew/opt/gettext/bin" >> "$GITHUB_PATH"
 
-      # ИСПОЛЬЗУЕМ arm64 ВМЕСТО x64
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
@@ -43,7 +43,6 @@ jobs:
       - name: Install Python dependencies
         run: |
           python -m pip install --upgrade pip setuptools wheel
-          python -m pip install --upgrade PyQt6 PyQt6-Qt6 PyQt6-sip qasync telethon keyring cryptg pysocks pyinstaller
           python -m pip install -r requirements.txt
 
       - name: Build with PyInstaller
@@ -59,6 +58,5 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: TelegramAutoBot-Installer
+          name: TelegramAutoBot-macOS
           path: dist/TelegramAutoBot.dmg
-          if-no-files-found: error
